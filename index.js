@@ -9,6 +9,8 @@ app.use(cors())
 app.use(express.static('build'))
 app.use(express.json())
 
+app.use(morgan('tiny'))
+
 
 
 persons = [
@@ -52,6 +54,16 @@ app.get('/api/persons/:id', (request, response) => {
   } else {
     response.status(404).end()
   }
+})
+
+app.put('/api/persons/:id', (request, response) => {
+  const id = +request.params.id
+  const otherPersons = persons.filter(person => person.id !== id)
+  const body = request.body
+
+  persons = otherPersons.concat(body)
+  response.json(body)
+  
 })
 
 app.delete('/api/persons/:id', (request, response) => {
