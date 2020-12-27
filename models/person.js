@@ -1,5 +1,5 @@
 const mongoose = require('mongoose')
-const uniqueValidator = require('mongoose-unique-validator')
+require('mongoose-unique-validator')
 
 const url = process.env.MONGODB_URI
 
@@ -26,4 +26,4 @@ personSchema.set('toJSON', {
   }
 })
 
-module.exports = mongoose.model('Person', personSchema)   
+module.exports = mongoose.model('Person', personSchema)

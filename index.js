@@ -3,7 +3,7 @@ const express = require('express')
 const morgan = require('morgan')
 const cors = require('cors')
 
-app = express()
+const app = express()
 
 app.use(cors())
 app.use(express.static('build'))
@@ -36,8 +36,8 @@ app.get('/api/persons/:id', (request, response, next) => {
       } else {
         response.status(404).end()
       }
-  })
-  .catch(err => next(err))
+    })
+    .catch(err => next(err))
 })
 
 app.put('/api/persons/:id', (request, response, next) => {
