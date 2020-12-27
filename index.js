@@ -1,4 +1,4 @@
-const { json } = require('express')
+require('dotenv').config()
 const express = require('express')
 const morgan = require('morgan')
 const cors = require('cors')
@@ -11,98 +11,99 @@ app.use(express.json())
 
 app.use(morgan('tiny'))
 
-
-
-persons = [
-  {
-    id: 1,
-    name: "Alto Herras",
-    number: "303-124-3242"
-  },
-  {
-    id: 2,
-    name: "James Lipe",
-    number: "324-21-3242"
-  },
-  {
-    id: 3,
-    name: "Ralph :)",
-    number: "2432-234-12321"
-  },
-  {
-    id: 4,
-    name: "NICOLE",
-    number: "242-131-423423"
-  },
-]
+const Person = require('./models/person')
 
 app.get('/api/persons', (request, response) => {
-  response.json(persons)
+  Person.find({}).then(people => {
+    response.json(people)
+  })
 })
 
-app.get('/info', (request, response) => {
-  const numPersons = persons.length
-  const date = new Date()
-  response.send(`<h1>There are ${numPersons} entries</h1><p>${date}</p>`)
+app.get('/info', (request, response, next) => {
+  Person.count()
+    .then(count => {
+      response.send(`<h1>There are ${count} entries</h1><p>${new Date()}</p>`)
+    })
+    .catch(err => next(err))
 })
 
-app.get('/api/persons/:id', (request, response) => {
-  const id = +request.params.id
-  const person = persons.find(person => person.id === id)
-  if (person) {
-    response.json(person)
-  } else {
-    response.status(404).end()
-  }
+
+app.get('/api/persons/:id', (request, response, next) => {
+  Person.findById(request.params.id)
+    .then(note => {
+      if (note) {
+        response.json(note)
+      } else {
+        response.status(404).end()
+      }
+  })
+  .catch(err => next(err))
 })
 
-app.put('/api/persons/:id', (request, response) => {
-  const id = +request.params.id
-  const otherPersons = persons.filter(person => person.id !== id)
+app.put('/api/persons/:id', (request, response, next) => {
   const body = request.body
-
-  persons = otherPersons.concat(body)
-  response.json(body)
-  
-})
-
-app.delete('/api/persons/:id', (request, response) => {
-  const id = +request.params.id
-  persons = persons.filter(person => person.id !== id)
-
-  response.status(204).end()
-})
-
-app.post('/api/persons', (request, response) => {
-  const newId = Math.floor(Math.random() * 10000)
-  const body = request.body
-
-  if (!body.name) {
-    return response.status(400).json({
-      error: 'name must be provided'
-    })
-  }
-  if (!body.number) {
-    return response.status(400).json({
-      error: 'number must be provided'
-    })
-  }
-  if (persons.find(person => person.name == body.name)){
-    return response.status(400).json({
-      error: 'name must be unique'
-    })
-  }
 
   const person = {
-    id: newId,
     name: body.name,
     number: body.number
   }
 
-  persons = persons.concat(person)
-
-  response.json(person)
+  Person.findByIdAndUpdate(request.params.id, person, { new: true, runValidators: true })
+    .then(updatedPerson => {
+      response.json(updatedPerson)
+    })
+    .catch(err => next(err))
 })
+
+app.delete('/api/persons/:id', (request, response, next) => {
+  Person.findByIdAndRemove(request.params.id)
+    .then(result => {
+      response.status(204).end()
+    })
+    .catch(err => next(err))
+})
+
+app.post('/api/persons', (request, response, next) => {
+  const body = request.body
+
+  const person = new Person({
+    name: body.name,
+    number: body.number
+  })
+
+  person.save()
+    .then(savedPerson => savedPerson.toJSON())
+    .then(savedAndFormattedPerson => {
+      response.json(savedAndFormattedPerson)
+    })
+    .catch(err => next(err))
+})
+
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: 'unknown endpoint' })
+}
+
+// handler of requests with unknown endpoint
+app.use(unknownEndpoint)
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.name)
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } else if (error.name === 'MongoError') {
+    return response.status(400).send({ error: 'need unique names and numbers' })
+  } else if (error.name === 'ValidationError') {
+    return response.status(400).send({ error: error.message })
+  } else if (error.name === 'MongooseError') {
+    return response.status(500).send({ error: error.message })
+  }
+
+  next(error)
+}
+
+// handler of requests with result to errors
+app.use(errorHandler)
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
